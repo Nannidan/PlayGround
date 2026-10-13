@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Mini Royale — 2-Phone Battle Royale</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+  :root {
+    --gold:#ffe14d; --gold2:#f5a623; --panel:rgba(12,16,36,.86); --line:rgba(255,255,255,.16);
+    --c0:#b1b1b1; --c1:#5bd75b; --c2:#4d9bff; --c3:#b45bff; --c4:#ffb02e;
+    --hp:#3fd95b; --sh:#3fa9ff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0b1020;
+    font-family:'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    touch-action:none; overscroll-behavior:none; user-select:none; -webkit-user-select:none; }
+  canvas#scene { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .hidden { display:none !important; }
+
+  /* ---------- shared panel look ---------- */
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:18px; backdrop-filter:blur(10px);
+    box-shadow:0 18px 50px rgba(0,0,0,.5); color:#fff; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:none; cursor:pointer;
+    font-weight:900; letter-spacing:.4px; border-radius:12px; color:#1c1400; font-size:15px; padding:12px 16px;
+    background:linear-gradient(180deg,#ffe98a,#f5a623); box-shadow:0 4px 0 #b07400, 0 10px 22px rgba(245,166,35,.35); }
+  .btn:active { transform:translateY(2px); box-shadow:0 2px 0 #b07400; }
+  .btn.ghost { background:rgba(255,255,255,.09); color:#fff; box-shadow:none; border:1px solid var(--line); }
+  .btn.blue { background:linear-gradient(180deg,#8ec9ff,#2f80ff); color:#041028; box-shadow:0 4px 0 #1448a8, 0 10px 22px rgba(47,128,255,.35); }
+  .btn:disabled { filter:grayscale(.8) brightness(.7); pointer-events:none; }
+
+  /* ---------- MENU ---------- */
+  #menu { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:14px;
+    background: radial-gradient(1100px 650px at 18% 8%, #24409c 0%, transparent 58%),
+                radial-gradient(900px 600px at 88% 85%, #8b2ff7 0%, transparent 52%),
+                linear-gradient(160deg,#0b1020,#151d45); overflow:auto; }
+  .menuCard { width:min(600px,96vw); padding:20px 18px; }
+  h1.logo { font-size:clamp(28px,6vw,44px); font-weight:950; letter-spacing:1px; line-height:1; }
+  h1.logo span { background:linear-gradient(90deg,#ffd93d,#ff6b6b,#b06cff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tagline { opacity:.85; margin:6px 0 14px; font-size:13.5px; line-height:1.5; }
+  .bigRow { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+  .bigRow .btn { flex:1; min-width:220px; padding:16px 14px; font-size:16.5px; flex-direction:column; gap:4px; }
+  .bigRow .btn small { font-weight:700; font-size:11.5px; opacity:.8; }
+  .ctlBox { background:rgba(9,12,30,.65); border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0; }
+  .ctlBox label { font-weight:800; font-size:14px; display:flex; justify-content:space-between; align-items:center; }
+  .ctlBox input[type=range] { width:100%; margin-top:8px; accent-color:var(--gold); height:32px; }
+  .segRow { display:flex; gap:6px; margin-top:8px; }
+  .seg { flex:1; padding:9px 4px; border-radius:10px; border:2px solid rgba(255,255,255,.14); background:#161d45; color:#fff; font-weight:800; font-size:12.5px; cursor:pointer; }
+  .seg.active { border-color:var(--gold); background:#2a3570; }
+  .help { font-size:12.5px; line-height:1.6; opacity:.92; }
+  .help b { color:var(--gold); }
+  #menuStatus { margin-top:10px; font-size:13px; min-height:18px; color:#9fe0a0; }
+
+  /* ---------- LOBBY ---------- */
+  #lobby { position:fixed; inset:0; z-index:52; display:none; align-items:center; justify-content:center; padding:14px;
+    background:rgba(5,8,20,.82); backdrop-filter:blur(6px); overflow:auto; }
+  #lobbyBox { width:min(560px,96vw); padding:22px 18px; text-align:center; }
+  #lobbyTitle { font-size:22px; font-weight:900; margin-bottom:8px; }
+  #roomCode { font-size:clamp(44px,12vw,72px); font-weight:950; letter-spacing:12px; color:var(--gold);
+    text-shadow:0 0 30px rgba(255,225,77,.45); margin:8px 0; }
+  #joinUrl { font-size:12px; word-break:break-all; opacity:.85; background:rgba(0,0,0,.4); border:1px solid var(--line);
+    border-radius:10px; padding:8px 10px; margin:8px 0; cursor:pointer; }
+  #lobbyStatus { font-size:14px; margin:10px 0; min-height:20px; color:#ffd93d; font-weight:700; }
+  #lobbyStatus.ok { color:#7dff9a; }
+  .codeInput { font-size:34px; font-weight:950; letter-spacing:10px; text-align:center; width:90%; padding:10px;
+    border-radius:14px; border:2px solid var(--line); background:rgba(0,0,0,.45); color:#fff; text-transform:uppercase; margin:10px 0; }
+  .lobbyBtns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+  #pingLine { font-size:12px; opacity:.75; }
+
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; inset:0; z-index:20; display:none; pointer-events:none; }
+  #hud > * { pointer-events:none; }
+  #hud .interactive, #hud .joy, #hud .tbtn, #hud #craftPanel, #hud #buildBar { pointer-events:auto; }
+  .pill { background:rgba(6,9,24,.72); color:#fff; border:1px solid rgba(255,255,255,.22); padding:6px 12px;
+    border-radius:999px; font-weight:850; font-size:12.5px; white-space:nowrap; text-shadow:0 1px 2px #000; }
+  #topbar { position:absolute; top:calc(8px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; z-index:22; }
+  #zonePill.warn { background:rgba(180,35,35,.82); animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { transform:scale(1.05); } }
+  #killfeed { position:absolute; top:calc(120px + env(safe-area-inset-top)); right:calc(10px + env(safe-area-inset-right));
+    display:flex; flex-direction:column; gap:4px; align-items:flex-end; z-index:22; max-width:52vw; }
+  .feed { background:rgba(6,9,24,.72); color:#fff; font-size:11.5px; padding:4px 9px; border-radius:8px;
+    border:1px solid rgba(255,255,255,.16); animation:feedIn .18s ease-out; }
+  .feed b { color:var(--gold); }
+  @keyframes feedIn { from { transform:translateX(14px); opacity:0; } }
+  #minimap { position:absolute; top:calc(8px + env(safe-area-inset-top)); right:calc(8px + env(safe-area-inset-right));
+    width:104px; height:104px; border-radius:14px; border:2px solid rgba(255,255,255,.4); background:rgba(6,24,14,.72);
+    z-index:21; box-shadow:0 6px 18px rgba(0,0,0,.4); }
+  #crosshair { position:absolute; left:50%; top:50%; width:26px; height:26px; margin:-13px 0 0 -13px; z-index:21; }
+  #crosshair:before, #crosshair:after { content:''; position:absolute; background:rgba(255,255,255,.95); box-shadow:0 0 3px #000; }
+  #crosshair:before { left:12px; top:3px; width:2px; height:20px; }
+  #crosshair:after { top:12px; left:3px; width:20px; height:2px; }
+  #crosshair .dot { position:absolute; left:11.5px; top:11.5px; width:3px; height:3px; background:#fff; border-radius:50%; }
+
+  /* vitals (bottom-left) */
+  #vitals { position:absolute; left:calc(12px + env(safe-area-inset-left)); bottom:calc(12px + env(safe-area-inset-bottom));
+    width:min(300px,46vw); z-index:22; }
+  #pname { font-weight:900; color:#fff; font-size:13px; text-shadow:0 2px 4px #000; margin-bottom:4px; display:flex; gap:8px; align-items:center; }
+  .barWrap { height:15px; background:rgba(0,0,0,.62); border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,.28); margin-bottom:3px; }
+  #barHP { height:100%; width:100%; background:linear-gradient(180deg,#6cf084,var(--hp)); transition:width .16s; }
+  #barSH { height:9px; background:rgba(0,0,0,.62); border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,.24); }
+  #barSH > div { height:100%; width:0%; background:linear-gradient(180deg,#7ec9ff,var(--sh)); transition:width .16s; }
+  #hpNums { font-size:11px; font-weight:800; color:#eafff0; text-shadow:0 1px 2px #000; }
+
+  /* mats + weapon (bottom-center-right) */
+  #mats { position:absolute; bottom:calc(12px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+    display:flex; gap:10px; z-index:22; }
+  .matChip { background:rgba(6,9,24,.72); border:1px solid rgba(255,255,255,.2); border-radius:10px; padding:4px 9px;
+    font-weight:900; font-size:13px; color:#fff; text-shadow:0 1px 2px #000; }
+  #weaponCard { position:absolute; right:calc(14px + env(safe-area-inset-right)); bottom:calc(300px + env(safe-area-inset-bottom));
+    background:rgba(6,9,24,.78); border:2px solid var(--c0); border-radius:14px; padding:8px 12px; z-index:22;
+    min-width:150px; text-align:center; box-shadow:0 8px 22px rgba(0,0,0,.45); }
+  #weaponCard .wname { font-weight:900; font-size:13.5px; color:#fff; text-shadow:0 1px 2px #000; }
+  #weaponCard .wtier { font-size:11px; font-weight:800; letter-spacing:.5px; }
+  #weaponCard .wstat { font-size:10.5px; opacity:.8; margin-top:2px; }
+
+  /* touch controls */
+  .joy { position:absolute; width:132px; height:132px; border-radius:50%; background:rgba(255,255,255,.07);
+    border:2px solid rgba(255,255,255,.3); z-index:30; touch-action:none; }
+  .joyKnob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%;
+    background:rgba(255,255,255,.4); border:2px solid rgba(255,255,255,.75); }
+  #joy { left:calc(16px + env(safe-area-inset-left)); bottom:calc(92px + env(safe-area-inset-bottom)); }
+  .tbtn { position:absolute; z-index:30; border-radius:50%; border:2px solid rgba(255,255,255,.5); color:#fff;
+    font-weight:900; display:flex; align-items:center; justify-content:center; touch-action:none; text-shadow:0 1px 3px #000;
+    font-size:13px; letter-spacing:.3px; }
+  .tbtn:active { filter:brightness(1.25); transform:scale(.96); }
+  #btnFire { right:calc(18px + env(safe-area-inset-right)); bottom:calc(108px + env(safe-area-inset-bottom));
+    width:92px; height:92px; font-size:17px; background:rgba(230,50,50,.55); }
+  #btnFire.place { background:rgba(60,200,90,.55); }
+  #btnJump { right:calc(122px + env(safe-area-inset-right)); bottom:calc(168px + env(safe-area-inset-bottom)); width:62px; height:62px; background:rgba(60,130,255,.45); font-size:12px; }
+  #btnBuild { right:calc(128px + env(safe-area-inset-right)); bottom:calc(92px + env(safe-area-inset-bottom)); width:62px; height:62px; background:rgba(255,190,40,.42); font-size:12px; }
+  #btnBuild.on { background:rgba(255,190,40,.8); color:#241a00; }
+  #btnPick { right:calc(64px + env(safe-area-inset-right)); bottom:calc(214px + env(safe-area-inset-bottom)); width:54px; height:54px; background:rgba(150,150,170,.4); font-size:18px; }
+  #btnPick.on { background:rgba(220,220,240,.85); color:#222; }
+  #btnCraft { right:calc(18px + env(safe-area-inset-right)); bottom:calc(224px + env(safe-area-inset-bottom)); width:54px; height:54px; background:rgba(180,91,255,.5); font-size:12px; }
+  #btnHeal { right:calc(132px + env(safe-area-inset-right)); bottom:calc(90px + env(safe-area-inset-bottom)); width:0; height:0; display:none; }
+
+  /* build bar */
+  #buildBar { position:absolute; bottom:calc(96px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+    display:none; gap:6px; z-index:28; background:rgba(6,9,24,.7); border:1px solid var(--line); border-radius:14px; padding:7px; }
+  #buildBar.show { display:flex; }
+  .bbtn { min-width:52px; padding:7px 6px; border-radius:10px; border:2px solid rgba(255,255,255,.16); background:#161d45;
+    color:#fff; font-weight:850; font-size:11px; cursor:pointer; text-align:center; line-height:1.25; }
+  .bbtn.active { border-color:var(--gold); background:#2c376f; }
+  .bbtn .cost { display:block; font-size:9.5px; opacity:.8; }
+  .bsep { width:1px; background:rgba(255,255,255,.18); margin:2px 3px; }
+
+  /* craft panel */
+  #craftPanel { position:absolute; inset:auto 50% calc(96px + env(safe-area-inset-bottom)) auto; transform:translateX(50%);
+    width:min(420px,94vw); max-height:58vh; overflow:auto; display:none; z-index:40; padding:12px; }
+  #craftPanel.show { display:block; }
+  #craftPanel h3 { font-size:15px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .recipe { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.05); border:1px solid var(--line);
+    border-radius:12px; padding:8px 10px; margin-bottom:7px; }
+  .recipe .ricon { font-size:24px; }
+  .recipe .rinfo { flex:1; text-align:left; }
+  .recipe .rname { font-weight:900; font-size:13.5px; }
+  .recipe .rdesc { font-size:11px; opacity:.8; }
+  .recipe .rcost { font-size:11px; margin-top:2px; font-weight:800; }
+  .recipe .rcost .no { color:#ff7a7a; } .recipe .rcost .ok { color:#8aff9c; }
+  .recipe button { padding:9px 12px; font-size:12.5px; }
+  #craftProgress { height:8px; background:rgba(0,0,0,.5); border-radius:6px; overflow:hidden; margin-top:8px; display:none; }
+  #craftProgress > div { height:100%; width:0%; background:linear-gradient(90deg,#b45bff,#ffe14d); }
+  #craftProgress.show { display:block; }
+
+  /* toasts & drop hint */
+  #toasts { position:absolute; top:34%; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; align-items:center; z-index:26; }
+  .toast { background:rgba(6,9,24,.82); border:1px solid var(--line); color:#fff; font-weight:800; font-size:13.5px;
+    padding:8px 14px; border-radius:12px; animation:toastIn .2s ease-out; text-shadow:0 1px 2px #000; }
+  @keyframes toastIn { from { transform:translateY(10px) scale(.9); opacity:0; } }
+  #dropHint { position:absolute; top:22%; left:50%; transform:translateX(-50%); z-index:24; text-align:center; display:none; }
+  #dropHint .dh1 { font-size:26px; font-weight:950; color:#fff; text-shadow:0 2px 12px #000; letter-spacing:1px; }
+  #dropHint .dh2 { font-size:13px; color:#ffe9a8; font-weight:800; text-shadow:0 1px 6px #000; margin-top:4px; }
+  #stormVignette { position:absolute; inset:0; z-index:19; pointer-events:none; opacity:0; transition:opacity .5s;
+    background:radial-gradient(ellipse at center, transparent 42%, rgba(140,60,255,.5) 100%); }
+
+  /* ---------- GAME OVER ---------- */
+  #over { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(4,6,18,.78); padding:14px; }
+  #overBox { width:min(520px,96vw); padding:26px 20px; text-align:center; }
+  #overTitle { font-size:clamp(26px,7vw,40px); font-weight:950; line-height:1.05; }
+  #overTitle.win { background:linear-gradient(90deg,#ffe14d,#ff9a3d); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #overSub { opacity:.9; margin:10px 0 14px; font-size:14px; line-height:1.55; }
+  .standings { text-align:left; font-size:12.5px; line-height:1.7; background:rgba(0,0,0,.3); border-radius:12px; padding:8px 12px; margin-bottom:14px; }
+  .standings .you { color:var(--gold); font-weight:900; }
+
+  body.desktop #joy { display:none; }
+  body.desktop .tbtn { opacity:.85; }
+  @media (max-width:700px) {
+    #minimap { width:84px; height:84px; }
+    #weaponCard { min-width:120px; padding:6px 9px; bottom:calc(184px + env(safe-area-inset-bottom)); }
+    #btnFire { width:84px; height:84px; }
+    #mats { gap:6px; } .matChip { font-size:11.5px; padding:3px 7px; }
+  }
+  @media (max-height:500px) {
+    #joy { bottom:calc(16px + env(safe-area-inset-bottom)); }
+    #btnFire { bottom:calc(52px + env(safe-area-inset-bottom)); }
+    #btnJump { bottom:calc(120px + env(safe-area-inset-bottom)); }
+    #btnBuild { bottom:calc(40px + env(safe-area-inset-bottom)); }
+    #btnPick { bottom:calc(160px + env(safe-area-inset-bottom)); }
+    #btnCraft { bottom:calc(166px + env(safe-area-inset-bottom)); }
+    #weaponCard { bottom:calc(150px + env(safe-area-inset-bottom)); }
+    #buildBar { bottom:calc(40px + env(safe-area-inset-bottom)); }
+    #craftPanel { bottom:calc(40px + env(safe-area-inset-bottom)); max-height:70vh; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ============ MAIN MENU ============ -->
+<div id="menu">
+  <div class="panel menuCard">
+    <h1 class="logo">⚡ MINI <span>ROYALE</span></h1>
+    <div class="tagline">Battle Royale on your phone — <b>play together on 2 separate phones</b> (no split-screen!), or solo vs bots.
+      Tiered loot · harvesting · crafting · full build system · shrinking storm · Victory Royale.</div>
+    <div class="bigRow">
+      <button class="btn" id="btnSolo">🧍 SOLO vs BOTS<small>drop in right away</small></button>
+      <button class="btn blue" id="btnHost">📱 2-PHONE CO-OP<small>create a room for phone #2</small></button>
+    </div>
+    <div class="ctlBox" id="soloOpts">
+      <label>🤖 Bots in the match: <span id="botVal" style="color:var(--gold);font-size:18px">6</span></label>
+      <input type="range" id="botCount" min="0" max="10" step="1" value="6">
+    </div>
+    <div class="ctlBox">
+      <label>✨ Graphics quality</label>
+      <div class="segRow" id="qualitySegs">
+        <button class="seg" data-q="low">⚡ Low</button>
+        <button class="seg" data-q="medium">📱 Medium</button>
+        <button class="seg" data-q="high">🖥️ High</button>
+        <button class="seg active" data-q="auto">🤖 Auto</button>
+      </div>
+    </div>
+    <div class="ctlBox">
+      <label>🔊 Sound</label>
+      <div class="segRow" id="soundSegs">
+        <button class="seg active" data-s="1">🔊 On</button>
+        <button class="seg" data-s="0">🔇 Off</button>
+      </div>
+    </div>
+    <div class="ctlBox help">
+      <b>📱 Phone:</b> left stick move · drag screen to aim · red <b>FIRE</b> · blue <b>JUMP</b> · yellow <b>BUILD</b> (then FIRE = place) · ⛏ pickaxe harvests trees/rocks/metal · purple <b>CRAFT</b> menu.<br>
+      <b>🖥️ Desktop:</b> WASD move · drag to aim · <b>F</b> fire · <b>Space</b> jump · <b>G</b> build · <b>1/2/3</b> wall/ramp/floor · <b>Z/X/C</b> wood/brick/metal · <b>Q</b> pickaxe · <b>V</b> craft.<br>
+      🎯 <b>Season-style loop:</b> dive from the sky → loot chests → harvest mats → upgrade weapons → build fights → outrun the storm → <b>#1 Victory Royale!</b> ☄️ Hop Rocks at the meteor crater!
+    </div>
+    <div id="menuStatus"></div>
+  </div>
+</div>
+
+<!-- ============ LOBBY ============ -->
+<div id="lobby">
+  <div class="panel" id="lobbyBox">
+    <div id="lobbyTitle">📱 Create a 2-Phone Room</div>
+    <div id="roomCode">----</div>
+    <div id="joinUrl" title="Tap to copy">…</div>
+    <div id="lobbyStatus">Waiting for phone #2…</div>
+    <div id="pingLine"></div>
+    <div class="lobbyBtns">
+      <button class="btn" id="btnStartRoom" disabled>🚀 START MATCH</button>
+      <button class="btn ghost" id="btnJoinInstead">🔑 Join with a code</button>
+      <button class="btn ghost" id="btnLobbyBack">← Back</button>
+    </div>
+    <div id="joinForm" style="display:none">
+      <div class="lobbyTitle" style="margin-top:14px">🔑 Enter room code</div>
+      <input class="codeInput" id="codeInput" maxlength="4" placeholder="••••" autocomplete="off">
+      <div class="lobbyBtns"><button class="btn blue" id="btnDoJoin">JOIN ROOM</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HUD ============ -->
+<div id="hud">
+  <div id="stormVignette"></div>
+  <div id="topbar">
+    <div class="pill interactive" id="mutePill" title="Mute sound" style="pointer-events:auto;cursor:pointer">🔊</div>
+    <div class="pill" id="alivePill">🧍 —</div>
+    <div class="pill" id="zonePill">⭕ —</div>
+  </div>
+  <canvas id="minimap" width="220" height="220"></canvas>
+  <div id="killfeed"></div>
+  <div id="crosshair"><div class="dot"></div></div>
+
+  <div id="vitals">
+    <div id="pname">P1</div>
+    <div class="barWrap"><div id="barHP"></div></div>
+    <div id="barSH"><div></div></div>
+    <div id="hpNums">100 / 100</div>
+  </div>
+
+  <div id="mats">
+    <div class="matChip">🪵 <span id="mWood">0</span></div>
+    <div class="matChip">🧱 <span id="mBrick">0</span></div>
+    <div class="matChip">⚙️ <span id="mMetal">0</span></div>
+  </div>
+
+  <div id="weaponCard">
+    <div class="wname" id="wName">Assault Rifle</div>
+    <div class="wtier" id="wTier">COMMON</div>
+    <div class="wstat" id="wStat"></div>
+  </div>
+
+  <div id="joy" class="joy"><div class="joyKnob" id="joyKnob"></div></div>
+  <div class="tbtn" id="btnFire">FIRE</div>
+  <div class="tbtn" id="btnJump">JUMP</div>
+  <div class="tbtn" id="btnBuild">BUILD</div>
+  <div class="tbtn" id="btnPick">⛏</div>
+  <div class="tbtn" id="btnCraft">CRAFT</div>
+
+  <div id="buildBar">
+    <button class="bbtn active" data-piece="wall">▤ Wall<span class="cost">10 🪵/🧱/⚙️</span></button>
+    <button class="bbtn" data-piece="ramp">◺ Ramp<span class="cost">10</span></button>
+    <button class="bbtn" data-piece="floor">▦ Floor<span class="cost">10</span></button>
+    <div class="bsep"></div>
+    <button class="bbtn active" data-mat="wood">🪵<span class="cost" id="costWood">40</span></button>
+    <button class="bbtn" data-mat="brick">🧱<span class="cost" id="costBrick">20</span></button>
+    <button class="bbtn" data-mat="metal">⚙️<span class="cost" id="costMetal">10</span></button>
+    <div class="bsep"></div>
+    <button class="bbtn" id="btnCloseBuild">✕</button>
+  </div>
+
+  <div id="craftPanel" class="panel">
+    <h3>🛠️ CRAFTING <button class="btn ghost" id="btnCloseCraft" style="padding:4px 10px;font-size:12px">✕</button></h3>
+    <div id="recipeList"></div>
+    <div id="craftProgress"><div></div></div>
+  </div>
+
+  <div id="dropHint">
+    <div class="dh1">🪂 DIVE!</div>
+    <div class="dh2">joystick / WASD steers · glider deploys automatically</div>
+  </div>
+  <div id="toasts"></div>
+</div>
+
+<!-- ============ GAME OVER ============ -->
+<div id="over">
+  <div class="panel" id="overBox">
+    <div id="overTitle">#1 VICTORY ROYALE!</div>
+    <div id="overSub"></div>
+    <div class="standings" id="standings"></div>
+    <button class="btn" id="btnAgain">🔁 BACK TO MENU</button>
+  </div>
+</div>
+
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
